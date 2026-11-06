@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { daten } from '@/data/daten';
 import { parseDatum, tageBis } from '@/lib/hilfen';
 import Titel from './Titel';
+import type { OnlineTermin } from '@/lib/termineOnline';
 
 const ruhig = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -67,9 +68,9 @@ function Aussagen() {
   );
 }
 
-export default function Startseite({ heute, onLos }: { heute: Date | null; onLos: () => void }) {
+export default function Startseite({ heute, online, onLos }: { heute: Date | null; online: OnlineTermin[]; onLos: () => void }) {
   const { klasse, startseite, tests, pruefung, fragen } = daten;
-  const anstehend = heute ? tests.filter((t) => tageBis(parseDatum(t.datum), heute) >= 0).length : null;
+  const anstehend = heute ? [...tests, ...online].filter((t) => tageBis(parseDatum(t.datum), heute) >= 0).length : null;
   const tage = heute && pruefung.datum ? Math.max(0, tageBis(parseDatum(pruefung.datum), heute)) : null;
 
   return (

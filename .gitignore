@@ -7,3 +7,4 @@ next-env.d.ts
 claude-code-prompt-*.md
 .claude
 qr-code-bm25.png
+AGENTS.md

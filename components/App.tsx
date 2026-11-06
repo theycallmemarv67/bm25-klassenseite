@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { daten } from '@/data/daten';
+import { onlineAktiv, termineLaden, type OnlineTermin } from '@/lib/termineOnline';
 import Partikel from './Partikel';
 import Winter, { type Modus } from './Winter';
 import Uhr from './Uhr';
@@ -62,6 +63,26 @@ export default function App() {
   };
 
   useEffect(() => setHeute(new Date()), []);
+
+  // Gemeinsame Termine (Supabase): beim Start einmal, im Reiter "Termine" alle 30 Sekunden
+  const [online, setOnline] = useState<OnlineTermin[]>([]);
+  const [onlineFehler, setOnlineFehler] = useState<string | null>(null);
+  const onlineNeu = async () => {
+    if (!onlineAktiv) return;
+    try {
+      setOnline(await termineLaden());
+      setOnlineFehler(null);
+    } catch (err) {
+      setOnlineFehler((err as Error).message);
+    }
+  };
+  useEffect(() => {
+    onlineNeu();
+    if (aktiv !== 'termine') return;
+    const id = window.setInterval(onlineNeu, 30_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aktiv]);
 
   // Schneekugel-Shader schon vorbereiten, während die Startseite läuft
   useEffect(() => {
@@ -136,7 +157,7 @@ export default function App() {
 
       <main className="hauptbereich">
         {aktiv === 'start' ? (
-          <Startseite heute={heute} onLos={() => wechseln('termine')} />
+          <Startseite heute={heute} online={online} onLos={() => wechseln('termine')} />
         ) : (
           <div className={`inhalt${aktiv === 'termine' ? ' inhalt-termine' : ''}`} key={aktiv}>
             <h1 className="seitentitel" tabIndex={-1}>
@@ -146,6 +167,9 @@ export default function App() {
               (heute ? (
                 <Termine
                   heute={heute}
+                  online={online}
+                  onlineFehler={onlineFehler}
+                  neuLaden={onlineNeu}
                   zumLernstoff={(i) => {
                     setOffenerTest(i);
                     wechseln('lernstoff');
