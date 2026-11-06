@@ -74,6 +74,10 @@ Der Klassenname oben links ist eine verschneite Bubble-Schrift in WebGL2 (`compo
 
 Beim Reiter „Termine“ erscheint statt der Wisch-Animation eine 3D-Schneekugel (`components/Kugel.tsx`, WebGL2, ein einziger Shader: Glas mit Brechung und Spiegelung, Holzsockel mit Goldringen, Haus, Tannen, Lichter und Schnee im Inneren). Scrollen, Wischen, Pfeiltasten/Leertaste oder ein Klick auf die Kugel zoomen hinein, danach blendet der Kalender ein. Ganz oben im Kalender weiter nach oben scrollen zoomt wieder hinaus. Ohne WebGL2 gibt es eine flache 2D-Version; bei „Bewegung reduzieren“ erscheint der Kalender direkt.
 
+## Winter-Tal vor dem Quiz
+
+Beim Reiter „Quiz“ erscheint statt der Wisch-Animation ein nächtliches Winter-Tal (`components/Tal.tsx`, WebGL2, eigener Code). Scrollen, Wischen, Pfeiltasten/Leertaste oder ein Klick bewegen die Kamera etwa 300 m einen geschwungenen Weg entlang: Schneeglöckchen, Blausterne, Kirsch- und Pflaumenbäume, Rosensträucher (alle mit Schneehaube), Gras, Schneefall, Mond und Sterne. Die Blüten wachsen beim Näherkommen und weichen der Maus aus. Am Ende lösen sie sich in Lichtpunkte auf und das Quiz blendet ein. Ganz oben im Quiz weiter nach oben scrollen fliegt zurück ins Tal. Ohne WebGL2 oder bei „Bewegung reduzieren“ erscheint das Quiz direkt. Das Tal sieht dank festem Zufalls-Seed bei jedem Besuch gleich aus.
+
 ## Winter-Hintergrund
 
 `components/Winter.tsx` zeichnet ein Winterwunderland bei Dämmerung als Vektorgrafik (Canvas 2D): Himmel, Sterne, Mond, Berge, Dorf, Fichtenwälder, Schneefeld, große Fichten, Schneebüsche und drei Lichterketten. Darüber fallen Schneeflocken, die Lämpchen flackern. In den Inhaltsreitern ist die Szene abgedunkelt. Bei „Bewegung reduzieren“ fällt kein Schnee und die Lichter stehen still.

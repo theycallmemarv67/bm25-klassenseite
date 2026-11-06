@@ -7,6 +7,7 @@ import Partikel from './Partikel';
 import Winter, { type Modus } from './Winter';
 import Uhr from './Uhr';
 import Kugel, { vorwaermen } from './Kugel';
+import Tal from './Tal';
 import Einstellungen from './Einstellungen';
 import Startseite from './Startseite';
 import Termine from './Termine';
@@ -102,8 +103,8 @@ export default function App() {
   function wechseln(id: ReiterId) {
     if (wisch || id === aktiv) return;
     const name = REITER.find((r) => r.id === id)!.name;
-    // "Termine": statt Wisch übernimmt die Schneekugel (bei reduzierter Bewegung erscheint der Kalender direkt)
-    if (id === 'termine' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // "Termine" und "Quiz": statt Wisch übernehmen Schneekugel bzw. Winter-Tal (bei reduzierter Bewegung direkt)
+    if (id === 'termine' || id === 'quiz' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setAktiv(id);
       scrollTo(0, 0);
       return;
@@ -125,6 +126,7 @@ export default function App() {
       <Uhr modus={einstellungen.modus} />
       <Partikel laeuft={aktiv === 'start'} />
       {aktiv === 'termine' && <Kugel />}
+      {aktiv === 'quiz' && <Tal />}
       <div className="messraster" aria-hidden="true">
         {SENKRECHT.map((x) => (
           <i key={`v${x}`} className="v" style={{ left: `${x}%` }} />
@@ -159,7 +161,7 @@ export default function App() {
         {aktiv === 'start' ? (
           <Startseite heute={heute} online={online} onLos={() => wechseln('termine')} />
         ) : (
-          <div className={`inhalt${aktiv === 'termine' ? ' inhalt-termine' : ''}`} key={aktiv}>
+          <div className={`inhalt${aktiv === 'termine' ? ' inhalt-termine' : aktiv === 'quiz' ? ' inhalt-quiz' : ''}`} key={aktiv}>
             <h1 className="seitentitel" tabIndex={-1}>
               {titel}
             </h1>
