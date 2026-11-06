@@ -537,8 +537,9 @@ export default function Winter({ gedimmt, modus, schneefall }: { gedimmt: boolea
 
     function neu() {
       dpr = Math.min(devicePixelRatio || 1, 2);
-      W = innerWidth;
-      H = innerHeight;
+      // nie 0: ein Canvas mit Breite/Höhe 0 lässt drawImage abstürzen (z. B. versteckte App-Browser)
+      W = Math.max(1, innerWidth);
+      H = Math.max(1, innerHeight);
       for (const cv of [winter, schnee, ...Object.values(ebenen)]) {
         cv.width = Math.round(W * dpr);
         cv.height = Math.round(H * dpr);
