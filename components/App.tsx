@@ -8,6 +8,7 @@ import Winter, { type Modus } from './Winter';
 import Uhr from './Uhr';
 import Kugel, { vorwaermen } from './Kugel';
 import Tal from './Tal';
+import Frost from './Frost';
 import Einstellungen from './Einstellungen';
 import Startseite from './Startseite';
 import Termine from './Termine';
@@ -53,6 +54,7 @@ export default function App() {
   const [offenerTest, setOffenerTest] = useState<number | null>(null);
   const [quizThema, setQuizThema] = useState('alle');
   const [wisch, setWisch] = useState<{ name: string; nr: number } | null>(null);
+  const [frost, setFrost] = useState(0); // > 0: Frost-Effekt läuft (Wert = Schlüssel)
   const ersterWechsel = useRef(true);
   const [einstellungen, setEinstellungen] = useState<Gespeichert>(laden);
   const aendern = (neu: Partial<Gespeichert>) => {
@@ -103,6 +105,14 @@ export default function App() {
   function wechseln(id: ReiterId) {
     if (wisch || id === aktiv) return;
     const name = REITER.find((r) => r.id === id)!.name;
+    setFrost(0); // Eis sofort weg, wenn ein anderer Reiter gewählt wird
+    // Zurück auf "Start": statt Wisch friert der Bildschirm zu (nicht beim ersten Laden, nicht bei reduzierter Bewegung)
+    if (id === 'start' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setAktiv(id);
+      scrollTo(0, 0);
+      setFrost(Date.now());
+      return;
+    }
     // "Termine" und "Quiz": statt Wisch übernehmen Schneekugel bzw. Winter-Tal (bei reduzierter Bewegung direkt)
     if (id === 'termine' || id === 'quiz' || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setAktiv(id);
@@ -127,6 +137,7 @@ export default function App() {
       <Partikel laeuft={aktiv === 'start'} />
       {aktiv === 'termine' && <Kugel />}
       {aktiv === 'quiz' && <Tal />}
+      {aktiv === 'start' && frost > 0 && <Frost key={frost} onEnde={() => setFrost(0)} />}
       <div className="messraster" aria-hidden="true">
         {SENKRECHT.map((x) => (
           <i key={`v${x}`} className="v" style={{ left: `${x}%` }} />

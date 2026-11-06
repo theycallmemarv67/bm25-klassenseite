@@ -106,6 +106,10 @@ Beim Reiter „Termine“ erscheint statt der Wisch-Animation eine 3D-Schneekuge
 
 Beim Reiter „Quiz“ erscheint statt der Wisch-Animation ein nächtliches Winter-Tal (`components/Tal.tsx`, WebGL2, eigener Code). Scrollen, Wischen, Pfeiltasten/Leertaste oder ein Klick bewegen die Kamera etwa 300 m einen geschwungenen Weg entlang: Schneeglöckchen, Blausterne, Kirsch- und Pflaumenbäume, Rosensträucher (alle mit Schneehaube), Gras, Schneefall, Mond und Sterne. Die Blüten wachsen beim Näherkommen und weichen der Maus aus. Entlang des Wegs stehen rund 340 Low-Poly-Tannen, 15 Holzhäuser mit warm leuchtenden Fenstern und 26 Kinderpaare, die sich Schneebälle zuwerfen (auf schwachen Geräten halb so viele Tannen und Kinder). Am Ende lösen sie sich in Lichtpunkte auf und das Quiz blendet ein. Ganz oben im Quiz weiter nach oben scrollen fliegt zurück ins Tal. Ohne WebGL2 oder bei „Bewegung reduzieren“ erscheint das Quiz direkt. Das Tal sieht dank festem Zufalls-Seed bei jedem Besuch gleich aus.
 
+## Frost-Effekt beim Wechsel auf „Start“
+
+Wer von einem anderen Reiter auf „Start“ klickt, sieht den Bildschirm zufrieren (`components/Frost.tsx`, Canvas 2D, eigener Code): Milchglas, Farn-Eiskristalle und Eissterne wachsen von den Rändern zur Mitte. Mit 3 Klicks (oder Enter/Leertaste) bricht das Eis auf: Risse, ausbrechende Stücke, Wackeln, beim dritten Klick zersplittert alles. Esc überspringt den Effekt. Nicht beim ersten Laden der Seite und nicht bei „Bewegung reduzieren“. Wechselt man den Reiter, ist das Eis sofort weg.
+
 ## Winter-Hintergrund
 
 `components/Winter.tsx` zeichnet ein Winterwunderland bei Dämmerung als Vektorgrafik (Canvas 2D): Himmel, Sterne, Mond, Berge, Dorf, Fichtenwälder, Schneefeld, große Fichten, Schneebüsche und drei Lichterketten. Darüber fallen Schneeflocken, die Lämpchen flackern. In den Inhaltsreitern ist die Szene abgedunkelt. Bei „Bewegung reduzieren“ fällt kein Schnee und die Lichter stehen still.

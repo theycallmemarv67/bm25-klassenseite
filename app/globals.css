@@ -467,3 +467,18 @@ html[data-kugel] .messraster, html[data-tal] .messraster { display: none; }
 /* Zwischenprüfung: Rechenaufgaben */
 .rechnen { margin-top: 1rem; }
 .rechnen input { width: 12rem; max-width: 100%; }
+
+/* ---------- Frost-Effekt beim Wechsel auf Start ---------- */
+.frost { position: fixed; inset: 0; z-index: 15; width: 100vw; height: 100vh; cursor: pointer; touch-action: manipulation; }
+.frost-hinweis {
+  position: fixed; z-index: 16; bottom: 5vh; left: calc(var(--leiste) + (100% - var(--leiste)) / 2);
+  transform: translateX(-50%); max-width: calc(100% - var(--leiste) - 32px);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; text-align: center;
+  color: #0b1a3a; font: 500 12px/1.5 var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+}
+.frost-punkte { display: flex; gap: 8px; }
+.frost-punkte i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #0b1a3a; transition: background 0.2s; }
+.frost-punkte i.voll { background: #0b1a3a; }
+@media (max-width: 767px) { .frost-hinweis { bottom: 96px; } }
+html[data-frost] .leiste { background: rgba(4, 6, 31, 0.85); }
