@@ -196,7 +196,7 @@ export default function Frost({ onEnde }: { onEnde: () => void }) {
     const rauschen = Array.from({ length: MW * MH }, () => Math.random());
 
     // Bruch-Gitter: verschobene Eckpunkte (Rand fest), jede Zelle in 2 Dreiecke
-    const SP = 24;
+    const SP = 12; // ca. 150 Dreiecke (vorher 24 Spalten = ca. 600, das ruckelte)
     const ZE = Math.max(2, Math.round((SP * H) / W));
     const ecke: P[][] = [];
     for (let j = 0; j <= ZE; j++) {
@@ -388,9 +388,9 @@ export default function Frost({ onEnde }: { onEnde: () => void }) {
           r.gezeichnet = ziel;
         }
       }
-      // höchstens ~70 Dreiecke pro Bild lösen
+      // höchstens 30 Dreiecke pro Bild lösen
       let n = 0;
-      while (warteschlange.length && warteschlange[0].zeit <= jetzt && n < 70) {
+      while (warteschlange.length && warteschlange[0].zeit <= jetzt && n < 30) {
         const w = warteschlange.shift()!;
         loesen(w.d, w.von);
         n++;
