@@ -76,7 +76,7 @@ Beim Reiter „Termine“ erscheint statt der Wisch-Animation eine 3D-Schneekuge
 
 ## Winter-Tal vor dem Quiz
 
-Beim Reiter „Quiz“ erscheint statt der Wisch-Animation ein nächtliches Winter-Tal (`components/Tal.tsx`, WebGL2, eigener Code). Scrollen, Wischen, Pfeiltasten/Leertaste oder ein Klick bewegen die Kamera etwa 300 m einen geschwungenen Weg entlang: Schneeglöckchen, Blausterne, Kirsch- und Pflaumenbäume, Rosensträucher (alle mit Schneehaube), Gras, Schneefall, Mond und Sterne. Die Blüten wachsen beim Näherkommen und weichen der Maus aus. Am Ende lösen sie sich in Lichtpunkte auf und das Quiz blendet ein. Ganz oben im Quiz weiter nach oben scrollen fliegt zurück ins Tal. Ohne WebGL2 oder bei „Bewegung reduzieren“ erscheint das Quiz direkt. Das Tal sieht dank festem Zufalls-Seed bei jedem Besuch gleich aus.
+Beim Reiter „Quiz“ erscheint statt der Wisch-Animation ein nächtliches Winter-Tal (`components/Tal.tsx`, WebGL2, eigener Code). Scrollen, Wischen, Pfeiltasten/Leertaste oder ein Klick bewegen die Kamera etwa 300 m einen geschwungenen Weg entlang: Schneeglöckchen, Blausterne, Kirsch- und Pflaumenbäume, Rosensträucher (alle mit Schneehaube), Gras, Schneefall, Mond und Sterne. Die Blüten wachsen beim Näherkommen und weichen der Maus aus. Entlang des Wegs stehen rund 340 Low-Poly-Tannen, 15 Holzhäuser mit warm leuchtenden Fenstern und 26 Kinderpaare, die sich Schneebälle zuwerfen (auf schwachen Geräten halb so viele Tannen und Kinder). Am Ende lösen sie sich in Lichtpunkte auf und das Quiz blendet ein. Ganz oben im Quiz weiter nach oben scrollen fliegt zurück ins Tal. Ohne WebGL2 oder bei „Bewegung reduzieren“ erscheint das Quiz direkt. Das Tal sieht dank festem Zufalls-Seed bei jedem Besuch gleich aus.
 
 ## Winter-Hintergrund
 

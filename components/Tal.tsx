@@ -354,6 +354,83 @@ void main(){
   o = vec4(c, 1.0);
 }`;
 
+// ---------- Objekte: Tannen, Häuser, Kinder (Low-Poly, Flat-Shading, instanziert) ----------
+// Vertex: Position, Farbe, Leuchtwert, Teil (1/2 Arme, 3 Mantel, 4 Mütze); Instanz: Ort, Drehung, Größe, Zufall, Wurf-Phase
+const VS_OBJEKT = `${KOPF}
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aCol;
+layout(location = 2) in vec2 aLT;
+layout(location = 3) in vec4 aI;
+layout(location = 4) in vec3 aI2;
+uniform mat4 uVP;
+uniform vec3 uKamera;
+uniform float uZeit;
+out vec3 vW, vCol;
+out float vLeucht, vNebel, vSeed;
+vec3 kleid(float i){ // Rosa, Blau, Rot, Creme wie die Blumen
+  return i < 0.5 ? vec3(1.0, 0.45, 0.65) : i < 1.5 ? vec3(0.35, 0.5, 1.0) : i < 2.5 ? vec3(0.9, 0.15, 0.2) : vec3(0.95, 0.9, 0.75);
+}
+void main(){
+  vec3 p = aPos;
+  float teil = aLT.y;
+  vec3 col = aCol;
+  if (teil > 0.5 && teil < 3.5) col = kleid(floor(fract(aI2.y * 7.0) * 4.0));
+  if (teil > 3.5) col = kleid(floor(fract(aI2.y * 13.0) * 4.0));
+  if (teil > 0.5 && teil < 2.5) {
+    // Wurfarm (rechts): hoch nach hinten, dann nach vorn herunter; linker Arm pendelt leicht
+    float u = fract(uZeit / 3.2 + aI2.z);
+    float w = teil > 1.5 ? 2.6 * smoothstep(0.12, 0.3, u) - 2.9 * smoothstep(0.3, 0.36, u) + 0.3 * smoothstep(0.4, 0.55, u)
+                         : 0.15 * sin(uZeit * 2.0 + aI2.y * 10.0);
+    vec2 yz = p.yz - vec2(0.64, 0.0);
+    p.yz = vec2(0.64, 0.0) + mat2(cos(w), sin(w), -sin(w), cos(w)) * yz;
+  }
+  p *= aI2.x;
+  float c = cos(aI.w), s = sin(aI.w);
+  vW = vec3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c) + aI.xyz;
+  gl_Position = uVP * vec4(vW, 1.0);
+  vCol = col;
+  vLeucht = aLT.x;
+  vSeed = aI2.y;
+  vNebel = 1.0 - exp(-distance(vW, uKamera) * 0.024);
+}`;
+const FS_OBJEKT = `${KOPF}
+in vec3 vW, vCol;
+in float vLeucht, vNebel, vSeed;
+uniform vec3 uKamera, uMond;
+uniform float uBurst;
+out vec4 o;
+void main(){
+  vec3 n = normalize(cross(dFdx(vW), dFdy(vW))); // Flat-Shading
+  if (dot(n, uKamera - vW) < 0.0) n = -n;
+  float dif = max(dot(n, uMond), 0.0);
+  vec3 c = vCol * (0.2 + 0.65 * dif) + vCol * vLeucht;
+  if (hash(gl_FragCoord.xy + vSeed * 91.0) < uBurst * uBurst * 1.05) discard; // Auflösen am Ende
+  o = vec4(mix(c, NEBEL, vNebel), 1.0);
+}`;
+// additive Leuchtpunkte: Fensterschein, Schneebälle, Schweif, Schneestaub (x, y, z, Größe, r, g, b)
+const VS_LEUCHT = `${KOPF}
+layout(location = 0) in vec4 aP;
+layout(location = 1) in vec3 aF;
+uniform mat4 uVP;
+uniform vec3 uKamera;
+uniform float uFokus, uMaxPx;
+out vec3 vF;
+void main(){
+  vec4 c = uVP * vec4(aP.xyz, 1.0);
+  gl_PointSize = clamp(aP.w * uFokus / max(c.w, 0.05), 1.0, uMaxPx);
+  gl_Position = c;
+  vF = aF * exp(-distance(aP.xyz, uKamera) * 0.024);
+}`;
+const FS_LEUCHT = `${KOPF}
+in vec3 vF;
+uniform float uBurst;
+out vec4 o;
+void main(){
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(q, q);
+  o = vec4(vF * exp(-r2 * 4.0) * (1.0 - smoothstep(0.7, 1.0, r2)) * (1.0 - uBurst), 1.0);
+}`;
+
 // ---------- Zufall mit festem Seed ----------
 function zufall(seed: number) {
   let a = seed >>> 0;
@@ -475,7 +552,232 @@ export function talBauen() {
   }
   for (const [ds, d, typ] of [[-3, -5, 2], [2, 5.5, 3], [6, -4, 3], [7, 4, 2]]) baum(punkt(insel + ds, d), typ);
 
-  return { blumen: new Float32Array(B), striche: new Float32Array(S) };
+  // Häuser abwechselnd links und rechts, Vorderseite zum Weg
+  const haeuser: number[] = [];
+  const lichter: number[] = [];
+  const orte: V3[] = [];
+  for (let i = 0; i < 15; i++) {
+    const s = 14 + (i * (L - 10)) / 15 + r() * 6;
+    const seiteH = i % 2 ? -1 : 1;
+    const g = 1.3 + r() * 0.4;
+    const z = 10 - s;
+    const x = pfadX(z) + seiteH * (7.5 + r() * 3.5);
+    let y = Infinity;
+    for (const [dx, dz] of [[-1.2, -1], [1.2, -1], [-1.2, 1], [1.2, 1]]) y = Math.min(y, hoehe(x + dx * g, z + dz * g));
+    const dreh = seiteH < 0 ? Math.PI / 2 : -Math.PI / 2;
+    haeuser.push(x, y - 0.05, z, dreh, g, r(), 0);
+    orte.push([x, y, z]);
+    const c = Math.cos(dreh);
+    const sn = Math.sin(dreh);
+    for (const [lx, ly, lz, gr] of HAUS_LICHTER) {
+      lichter.push(x + (lx * c + lz * sn) * g, y + ly * g, z + (-lx * sn + lz * c) * g, gr * g, 1.0 * 0.32, 0.55 * 0.32, 0.2 * 0.32);
+    }
+  }
+  // Tannen: seitlich mindestens 8 vom Weg, nicht in Häusern (zufällige Reihenfolge, damit "halbieren" gleichmäßig ausdünnt)
+  const tannen: number[] = [];
+  while (tannen.length < 340 * 7) {
+    const s = -5 + r() * (L + 45);
+    const g = 1.3 + r() * 2.2;
+    const p = punkt(s, seite(8, 16));
+    if (orte.some((h) => Math.hypot(h[0] - p[0], h[2] - p[2]) < 3.2 + g * 0.6)) continue;
+    tannen.push(p[0], p[1] - 0.1, p[2], r() * 6.28, g, r(), 0);
+  }
+  // Kinderpaare gegenüber am Weg; gerade Paare zuerst, damit "halbieren" jedes zweite Paar weglässt
+  const paare: Paar[] = [];
+  for (let i = 0; i < 26; i++) {
+    const s = 10 + i * 11 + (r() - 0.5) * 3;
+    const a = punkt(s + (r() - 0.5) * 2, -(2.6 + r() * 1.2));
+    const b = punkt(s + (r() - 0.5) * 2, 2.6 + r() * 1.2);
+    paare.push({ s, a, b, g: 1.15 + r() * 0.2, phase: r(), bogen: 0.9 + r() * 0.8, za: r(), zb: r() });
+  }
+  const sortiert = [...paare.filter((_, i) => i % 2 === 0), ...paare.filter((_, i) => i % 2 === 1)];
+  const kinder: number[] = [];
+  for (const q of sortiert) {
+    kinder.push(...q.a, Math.atan2(q.b[0] - q.a[0], q.b[2] - q.a[2]), q.g, q.za, q.phase);
+    kinder.push(...q.b, Math.atan2(q.a[0] - q.b[0], q.a[2] - q.b[2]), q.g, q.zb, (q.phase + 0.5) % 1);
+  }
+
+  return {
+    blumen: new Float32Array(B),
+    striche: new Float32Array(S),
+    tannen: new Float32Array(tannen),
+    haeuser: new Float32Array(haeuser),
+    kinder: new Float32Array(kinder),
+    lichter: new Float32Array(lichter),
+    paare: sortiert,
+  };
+}
+
+type Paar = { s: number; a: V3; b: V3; g: number; phase: number; bogen: number; za: number; zb: number };
+
+// ---------- Low-Poly-Netze (je Vertex: x, y, z, r, g, b, Leuchtwert, Teil) ----------
+function netz(bauen: (n: ReturnType<typeof bauer>) => void) {
+  const n = bauer();
+  bauen(n);
+  return new Float32Array(n.v);
+}
+function bauer() {
+  const v: number[] = [];
+  let farbe: V3 = [1, 1, 1];
+  let leucht = 0;
+  let teil = 0;
+  const stil = (f: V3, l = 0, t = 0) => {
+    farbe = f;
+    leucht = l;
+    teil = t;
+  };
+  const tri = (a: V3, b: V3, c: V3) => {
+    for (const p of [a, b, c]) v.push(p[0], p[1], p[2], farbe[0], farbe[1], farbe[2], leucht, teil);
+  };
+  const quad = (a: V3, b: V3, c: V3, d: V3) => {
+    tri(a, b, c);
+    tri(a, c, d);
+  };
+  // Kegelstumpf um die y-Achse (r1 = 0: Kegel)
+  const stumpf = (y0: number, y1: number, r0: number, r1: number, n: number, deckel = true, rot = 0, cy: V3 = [0, 0, 0]) => {
+    const P = (a: number, y: number, r: number): V3 => [cy[0] + Math.cos(a) * r, cy[1] + y, cy[2] + Math.sin(a) * r];
+    for (let i = 0; i < n; i++) {
+      const a0 = rot + (i / n) * Math.PI * 2;
+      const a1 = rot + ((i + 1) / n) * Math.PI * 2;
+      quad(P(a0, y0, r0), P(a1, y0, r0), P(a1, y1, r1), P(a0, y1, r1));
+      if (deckel && r1 > 0) tri(P(a0, y1, r1), P(a1, y1, r1), [cy[0], cy[1] + y1, cy[2]]);
+    }
+  };
+  const kiste = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+    quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
+    quad([x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]);
+    quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]);
+    quad([x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]);
+    quad([x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]);
+    quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+  };
+  const kugel = (c: V3, r: number, n = 6) => {
+    for (let j = 0; j < 3; j++) {
+      const f0 = -Math.PI / 2 + (j * Math.PI) / 3;
+      const f1 = f0 + Math.PI / 3;
+      stumpf(Math.sin(f0) * r, Math.sin(f1) * r, Math.cos(f0) * r, Math.cos(f1) * r, n, false, 0, c);
+    }
+  };
+  return { v, stil, tri, quad, stumpf, kiste, kugel };
+}
+const SCHNEE: V3 = [0.62, 0.68, 0.85];
+const TANNE = () =>
+  netz((n) => {
+    n.stil([0.12, 0.07, 0.05]);
+    n.kiste(-0.05, 0.05, 0, 0.3, -0.05, 0.05);
+    for (let k = 0; k < 4; k++) {
+      const r = 0.55 - 0.11 * k;
+      const y0 = 0.25 + 0.3 * k;
+      const h = 0.55 - 0.04 * k;
+      n.stil([0.03 * (1 + 0.1 * k), 0.085 * (1 + 0.1 * k), 0.075 * (1 + 0.1 * k)]);
+      n.stumpf(y0, y0 + h, r, 0, 7, false, k * 0.4);
+      n.stil(SCHNEE);
+      n.stumpf(y0 + h * 0.5, y0 + h + 0.01, r * 0.52, 0, 7, false, k * 0.4);
+    }
+  });
+// Lichtschein der Häuser (lokal: x, y, z, Größe)
+const HAUS_LICHTER = [
+  [0.625, 0.675, 0.9, 1.1],
+  [-0.625, 0.675, 0.9, 1.1],
+  [1.1, 0.675, 0, 1.0],
+  [-1.1, 0.675, 0, 1.0],
+  [0, 1.47, 0.9, 0.8],
+  [0.4, 0.86, 1.15, 0.9],
+];
+const HAUS = () =>
+  netz((n) => {
+    const holz: V3 = [0.15, 0.085, 0.05];
+    n.stil(holz);
+    n.kiste(-1, 1, 0, 1.2, -0.8, 0.8);
+    n.tri([-1, 1.2, 0.8], [1, 1.2, 0.8], [0, 1.9, 0.8]);
+    n.tri([-1, 1.2, -0.8], [1, 1.2, -0.8], [0, 1.9, -0.8]);
+    n.stil(SCHNEE);
+    n.quad([-1.15, 1.08, -0.95], [-1.15, 1.08, 0.95], [0, 1.96, 0.95], [0, 1.96, -0.95]);
+    n.quad([1.15, 1.08, -0.95], [1.15, 1.08, 0.95], [0, 1.96, 0.95], [0, 1.96, -0.95]);
+    n.stil([0.2, 0.1, 0.08]);
+    n.kiste(0.35, 0.6, 1.3, 2.2, -0.4, -0.15);
+    n.stil(SCHNEE);
+    n.kiste(0.32, 0.63, 2.2, 2.28, -0.43, -0.12);
+    n.stil([0.08, 0.045, 0.03]);
+    n.kiste(-0.22, 0.22, 0, 0.75, 0.8, 0.83);
+    n.kiste(0.38, 0.42, 0, 0.8, 1.1, 1.14);
+    n.stil([1.0, 0.6, 0.25], 1.6);
+    n.kiste(0.45, 0.8, 0.5, 0.85, 0.8, 0.83);
+    n.kiste(-0.8, -0.45, 0.5, 0.85, 0.8, 0.83);
+    n.kiste(1.0, 1.03, 0.5, 0.85, -0.2, 0.2);
+    n.kiste(-1.03, -1.0, 0.5, 0.85, -0.2, 0.2);
+    n.kiste(-0.15, 0.15, 1.35, 1.6, 0.8, 0.83);
+    n.stil([1.0, 0.75, 0.4], 2.0);
+    n.kiste(0.35, 0.45, 0.8, 0.92, 1.07, 1.17);
+  });
+// Kind ohne Gesicht, schaut nach +z
+const KIND = () =>
+  netz((n) => {
+    n.stil([0.06, 0.06, 0.1]);
+    n.kiste(-0.1, -0.03, 0, 0.3, -0.04, 0.04);
+    n.kiste(0.03, 0.1, 0, 0.3, -0.04, 0.04);
+    n.stil([1, 1, 1], 0.3, 3);
+    n.stumpf(0.28, 0.68, 0.2, 0.11, 8);
+    n.stil([0.9, 0.88, 0.8], 0.15);
+    n.stumpf(0.66, 0.73, 0.125, 0.115, 8);
+    n.stil([0.8, 0.65, 0.55], 0.1);
+    n.kugel([0, 0.82, 0], 0.11);
+    n.stil([1, 1, 1], 0.3, 4);
+    n.stumpf(0.85, 1.02, 0.118, 0, 8);
+    n.stil([0.95, 0.95, 1.0], 0.3);
+    n.kugel([0, 1.03, 0], 0.04, 5);
+    n.stil([1, 1, 1], 0.3, 1);
+    n.kiste(-0.2, -0.13, 0.4, 0.64, -0.035, 0.035);
+    n.stil([1, 1, 1], 0.3, 2);
+    n.kiste(0.13, 0.2, 0.4, 0.64, -0.035, 0.035);
+  });
+
+// Schneebälle eines Bildes in den Puffer schreiben (Ball mit Schweif, Schneestaub beim Treffer)
+const zz = (n: number) => {
+  const x = Math.sin(n * 127.1) * 43758.5453;
+  return x - Math.floor(x);
+};
+export function baelleSchreiben(ziel: Float32Array, paare: Paar[], anzahl: number, zeit: number, kameraS: number) {
+  let n = 0;
+  const punkt = (p: V3, gr: number, h: number, f: V3 = [1, 0.97, 0.9]) => {
+    if (n >= ziel.length / 7) return;
+    ziel.set([p[0], p[1], p[2], gr, f[0] * h, f[1] * h, f[2] * h], n * 7);
+    n++;
+  };
+  for (let i = 0; i < anzahl; i++) {
+    const q = paare[i];
+    if (q.s < kameraS - 20 || q.s > kameraS + 70) continue;
+    const u = (((zeit / 3.2 + q.phase) % 1) + 1) % 1;
+    for (const [von, nach, uu, nr] of [
+      [q.a, q.b, u, 0],
+      [q.b, q.a, (u + 0.5) % 1, 1],
+    ] as [V3, V3, number, number][]) {
+      const d = norm([nach[0] - von[0], 0, nach[2] - von[2]]);
+      const hand: V3 = [von[0] + d[0] * 0.1 * q.g, von[1] + 0.95 * q.g, von[2] + d[2] * 0.1 * q.g];
+      const brust: V3 = [nach[0] - d[0] * 0.15 * q.g, nach[1] + 0.6 * q.g, nach[2] - d[2] * 0.15 * q.g];
+      if (uu >= 0.35 && uu < 0.5) {
+        const f0 = (uu - 0.35) / 0.15;
+        for (let k = 0; k < 6; k++) {
+          const f = Math.max(0, f0 - k * 0.035);
+          const p: V3 = [
+            hand[0] + (brust[0] - hand[0]) * f,
+            hand[1] + (brust[1] - hand[1]) * f + q.bogen * 4 * f * (1 - f),
+            hand[2] + (brust[2] - hand[2]) * f,
+          ];
+          punkt(p, k === 0 ? 0.14 : 0.09 * (1 - k / 6), k === 0 ? 1.3 : 0.55 * (1 - k / 6));
+        }
+      }
+      const a = (uu - 0.5) * 3.2;
+      if (a >= 0 && a < 0.7) {
+        for (let j = 0; j < 12; j++) {
+          const sd = i * 31 + nr * 17 + j;
+          const v: V3 = [(zz(sd) - 0.5) * 2.4, 0.8 + zz(sd + 0.3) * 1.5, (zz(sd + 0.7) - 0.5) * 2.4];
+          punkt([brust[0] + v[0] * a, brust[1] + v[1] * a - 4.9 * a * a, brust[2] + v[2] * a], 0.05, 0.9 * (1 - a / 0.7), [0.85, 0.9, 1]);
+        }
+      }
+    }
+  }
+  return n;
 }
 
 // ---------- Matrizen (spaltenweise wie in WebGL) ----------
@@ -608,6 +910,8 @@ export default function Tal() {
       weich: programm(VS_VOLL, FS_WEICH),
       strahlen: programm(VS_VOLL, FS_STRAHLEN),
       ende: programm(VS_VOLL, FS_ENDE),
+      objekt: programm(VS_OBJEKT, FS_OBJEKT),
+      leucht: programm(VS_LEUCHT, FS_LEUCHT),
     };
     const alle = Object.values(P);
     const ortCache = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>();
@@ -629,7 +933,7 @@ export default function Tal() {
     };
 
     // ---------- Geometrie ----------
-    const { blumen, striche } = talBauen();
+    const { blumen, striche, tannen, haeuser, kinder, lichter, paare } = talBauen();
     const nBlumen = blumen.length / 7;
     const nStriche = striche.length / 10;
     const puffer = (daten: BufferSource, typ: number = gl.ARRAY_BUFFER) => {
@@ -700,6 +1004,37 @@ export default function Tal() {
     };
     const vSchnee = flocken(3000);
     const vStaub = flocken(500);
+    // Objekte: Netz (pro Vertex) plus Instanzdaten
+    const objekt = (netzDaten: Float32Array<ArrayBuffer>, inst: Float32Array<ArrayBuffer>) => {
+      const v = vao();
+      const pn = puffer(netzDaten);
+      attr(0, 3, 32, 0);
+      attr(1, 3, 32, 12);
+      attr(2, 2, 32, 24);
+      const pi = puffer(inst);
+      attr(3, 4, 28, 0, 1);
+      attr(4, 3, 28, 16, 1);
+      puffer1.push(pn, pi);
+      return { v, nV: netzDaten.length / 8, nI: inst.length / 7 };
+    };
+    const oTannen = objekt(TANNE(), tannen);
+    const oHaeuser = objekt(HAUS(), haeuser);
+    const oKinder = objekt(KIND(), kinder);
+    const leuchtVao = (daten: Float32Array<ArrayBuffer>, art: number) => {
+      const v = vao();
+      const b = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, daten, art);
+      attr(0, 4, 28, 0);
+      attr(1, 3, 28, 16);
+      puffer1.push(b);
+      return { v, b };
+    };
+    const lHaus = leuchtVao(lichter, gl.STATIC_DRAW);
+    const baelle = new Float32Array(900 * 7);
+    const lBaelle = leuchtVao(baelle, gl.DYNAMIC_DRAW);
+    // schwache Geräte: halb so viele Tannen und Kinderpaare
+    let wenig = (navigator.hardwareConcurrency || 8) <= 4;
     const vLeer = vao();
     gl.bindVertexArray(null);
 
@@ -845,6 +1180,20 @@ export default function Tal() {
       gl.bindVertexArray(vStiele);
       gl.drawArraysInstanced(gl.LINES, 0, 2, nBlumen);
 
+      // Tannen, Häuser, Kinder
+      gl.disable(gl.BLEND);
+      gl.useProgram(P.objekt);
+      setze(P.objekt, { uVP: vp, uKamera: auge, uZeit: zeit, uMond: MOND, uBurst: auf });
+      for (const [o, anzahl] of [
+        [oTannen, wenig ? oTannen.nI >> 1 : oTannen.nI],
+        [oHaeuser, oHaeuser.nI],
+        [oKinder, wenig ? oKinder.nI >> 1 : oKinder.nI],
+      ] as const) {
+        gl.bindVertexArray(o.v);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, o.nV, anzahl);
+      }
+      gl.enable(gl.BLEND);
+
       gl.useProgram(P.bluete);
       setze(P.bluete, { ...gemeinsam, uMaxPx: Math.min(150 * dpr, maxPunkt), uHalo: 0 });
       gl.bindVertexArray(vBlueten);
@@ -854,6 +1203,17 @@ export default function Tal() {
       gl.blendFunc(gl.ONE, gl.ONE);
       setze(P.bluete, { uHalo: 1 });
       gl.drawArrays(gl.POINTS, 0, nBlumen);
+
+      // Fensterschein und Schneebälle (additiv)
+      const nBaelle = baelleSchreiben(baelle, paare, wenig ? paare.length >> 1 : paare.length, zeit, p * L);
+      gl.bindBuffer(gl.ARRAY_BUFFER, lBaelle.b);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, baelle, 0, nBaelle * 7);
+      gl.useProgram(P.leucht);
+      setze(P.leucht, { uVP: vp, uKamera: auge, uFokus: fokus, uMaxPx: Math.min(150 * dpr, maxPunkt), uBurst: auf });
+      gl.bindVertexArray(lHaus.v);
+      gl.drawArrays(gl.POINTS, 0, lichter.length / 7);
+      gl.bindVertexArray(lBaelle.v);
+      if (nBaelle) gl.drawArrays(gl.POINTS, 0, nBaelle);
 
       gl.useProgram(P.flocke);
       setze(P.flocke, { uVP: vp, uKamera: auge, uZeit: zeit, uFokus: fokus, uDpr: dpr, uStaub: 1 });
@@ -887,6 +1247,8 @@ export default function Tal() {
 
     // ---------- Schleife ----------
     let bereit = false;
+    let messStart = 0;
+    let messBilder = 0;
     let rahmen = 0;
     let vorher = 0;
     let gemeldet = -1;
@@ -923,9 +1285,14 @@ export default function Tal() {
           return;
         }
         bereit = true;
+        messStart = ms;
       }
       // bei geöffnetem Quiz nicht mehr rendern
-      if (bereit && !document.hidden && !(offen && anzeige === 1)) zeichne(ms / 1000, anzeige);
+      if (bereit && !document.hidden && !(offen && anzeige === 1)) {
+        zeichne(ms / 1000, anzeige);
+        // niedrige Bildrate in den ersten 90 Bildern: Tannen und Kinderpaare halbieren
+        if (++messBilder === 90 && (ms - messStart) / 89 > 1000 / 35) wenig = true;
+      }
       rahmen = requestAnimationFrame(schleife);
     }
     rahmen = requestAnimationFrame(schleife);
