@@ -5,8 +5,11 @@ import { daten, type Frage } from '@/data/daten';
 import { abstandText, formatDatum, mischen, parseDatum, tageBis } from '@/lib/hilfen';
 import QuizLauf from './QuizLauf';
 import Karteikarten from './Karteikarten';
+import Zwischenpruefung from './Zwischenpruefung';
 
 const SPEICHER = 'pruefung-checkliste';
+const ART_SPEICHER = 'bm25-pruefungsart';
+type Art = 'abschluss' | 'zwischen';
 
 export default function Pruefung({ heute }: { heute: Date }) {
   const { pruefung, themen, fragen } = daten;
@@ -28,6 +31,20 @@ export default function Pruefung({ heute }: { heute: Date }) {
   };
   const fertigAnzahl = themen.filter((t) => erledigt.includes(t)).length;
 
+  // ----- Prüfungsart (Abschluss- oder Zwischenprüfung), im Browser gemerkt -----
+  const [art, setArt] = useState<Art>('abschluss');
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(ART_SPEICHER) === 'zwischen') setArt('zwischen');
+    } catch {}
+  }, []);
+  const artWaehlen = (a: Art) => {
+    setArt(a);
+    try {
+      localStorage.setItem(ART_SPEICHER, a);
+    } catch {}
+  };
+
   // ----- Prüfungsmodus -----
   const [anzahl, setAnzahl] = useState(Math.min(10, fragen.length));
   const [minuten, setMinuten] = useState(0);
@@ -42,8 +59,32 @@ export default function Pruefung({ heute }: { heute: Date }) {
   const termin = pruefung.datum ? parseDatum(pruefung.datum) : null;
   const tage = termin ? tageBis(termin, heute) : 0;
 
+  const umschalter = (
+    <div className="knopfreihe" role="group" aria-label="Prüfungsart" style={{ marginTop: 0 }}>
+      {(
+        [
+          ['abschluss', 'Abschlussprüfung'],
+          ['zwischen', 'Zwischenprüfung'],
+        ] as const
+      ).map(([a, name]) => (
+        <button key={a} className={`knopf${art === a ? '' : ' zweit'}`} aria-pressed={art === a} onClick={() => artWaehlen(a)}>
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (art === 'zwischen')
+    return (
+      <section>
+        {umschalter}
+        <Zwischenpruefung />
+      </section>
+    );
+
   return (
     <section>
+      {umschalter}
       <h2>Countdown</h2>
       <div className="karte">
         {termin ? (

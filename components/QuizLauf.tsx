@@ -1,22 +1,34 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { Frage } from '@/data/daten';
-import { mischen } from '@/lib/hilfen';
+import { ihkNote, mischen, zahlLesen } from '@/lib/hilfen';
 
-// Ein Quiz-Durchlauf: wird vom Quiz-Reiter und vom Prüfungsmodus benutzt.
+// Eine Aufgabe: Mehrfachauswahl (antworten/richtig) oder Rechenaufgabe (zahl/einheit/toleranz)
+export type QuizAufgabe = { thema: string; frage: string; erklaerung: string } & (
+  | { antworten: string[]; richtig: number }
+  | { zahl: number; einheit: string; toleranz: number }
+);
+type Ergebnis = { gut: boolean; wahl?: number; eingabe?: number } | null;
+
+const zahlText = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+
+// Ein Quiz-Durchlauf: wird vom Quiz-Reiter, vom Prüfungsmodus und von der Zwischenprüfung benutzt.
 export default function QuizLauf({
   fragen,
   minuten = 0,
+  note = false,
   onNochmal,
 }: {
-  fragen: Frage[];
+  fragen: QuizAufgabe[];
   minuten?: number; // 0 = ohne Zeitlimit
+  note?: boolean; // Notenschätzung nach IHK-Schlüssel anzeigen
   onNochmal: () => void;
 }) {
-  const [reihenfolgen] = useState(() => fragen.map((f) => mischen(f.antworten.map((_, i) => i))));
+  const [reihenfolgen] = useState(() => fragen.map((f) => ('antworten' in f ? mischen(f.antworten.map((_, i) => i)) : [])));
   const [nr, setNr] = useState(0);
-  const [antworten, setAntworten] = useState<(number | null)[]>(() => fragen.map(() => null));
+  const [antworten, setAntworten] = useState<Ergebnis[]>(() => fragen.map(() => null));
+  const [eingabe, setEingabe] = useState('');
+  const [eingabeFehler, setEingabeFehler] = useState('');
   const [fertig, setFertig] = useState(false);
   const [rest, setRest] = useState(minuten * 60);
   const ueberschrift = useRef<HTMLHeadingElement>(null);
@@ -34,12 +46,13 @@ export default function QuizLauf({
   useEffect(() => ueberschrift.current?.focus(), [nr, fertig]);
 
   if (fertig) {
-    const punkte = antworten.filter((a, i) => a === fragen[i].richtig).length;
+    const punkte = antworten.filter((a) => a?.gut).length;
+    const prozent = Math.round((punkte / fragen.length) * 100);
     const proThema = new Map<string, { richtig: number; gesamt: number }>();
     fragen.forEach((f, i) => {
       const s = proThema.get(f.thema) ?? { richtig: 0, gesamt: 0 };
       s.gesamt++;
-      if (antworten[i] === f.richtig) s.richtig++;
+      if (antworten[i]?.gut) s.richtig++;
       proThema.set(f.thema, s);
     });
     const offen = antworten.filter((a) => a === null).length;
@@ -53,9 +66,18 @@ export default function QuizLauf({
           {punkte} / {fragen.length}
         </p>
         <p>
-          {Math.round((punkte / fragen.length) * 100)} % richtig
+          {prozent} % richtig
           {offen > 0 && ` · ${offen} unbeantwortet`}
         </p>
+        {note && (
+          <p>
+            <strong>Notenschätzung: Note {ihkNote(prozent)}</strong>
+            <br />
+            <span className="leise">
+              Nach dem IHK-Schlüssel (ab 92 % = 1, 81 % = 2, 67 % = 3, 50 % = 4, 30 % = 5). Nur eine Schätzung für diese Übung.
+            </span>
+          </p>
+        )}
         <table>
           <thead>
             <tr>
@@ -84,9 +106,27 @@ export default function QuizLauf({
   }
 
   const frage = fragen[nr];
-  const gewaehlt = antworten[nr];
-  const beantwortet = gewaehlt !== null;
+  const ergebnis = antworten[nr];
+  const beantwortet = ergebnis !== null;
   const letzte = nr + 1 === fragen.length;
+  const merken = (e: Ergebnis) => setAntworten(antworten.map((a, j) => (j === nr ? e : a)));
+  const weiter = () => {
+    setEingabe('');
+    setEingabeFehler('');
+    if (letzte) setFertig(true);
+    else setNr(nr + 1);
+  };
+  const pruefen = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!('zahl' in frage) || beantwortet) return;
+    const n = zahlLesen(eingabe);
+    if (n === null) {
+      setEingabeFehler('Bitte eine Zahl eingeben, z. B. 416,50.');
+      return;
+    }
+    setEingabeFehler('');
+    merken({ gut: Math.abs(n - frage.zahl) <= frage.toleranz + 1e-9, eingabe: n });
+  };
 
   return (
     <div className="karte">
@@ -103,35 +143,64 @@ export default function QuizLauf({
       <h3 ref={ueberschrift} tabIndex={-1} style={{ marginTop: '0.75rem' }}>
         {frage.frage}
       </h3>
-      <div className="antworten">
-        {reihenfolgen[nr].map((i) => {
-          const art = !beantwortet ? '' : i === frage.richtig ? 'richtig' : i === gewaehlt ? 'falsch' : '';
-          return (
-            <button
-              key={i}
-              className={`antwort ${art}`}
+      {'antworten' in frage ? (
+        <div className="antworten">
+          {reihenfolgen[nr].map((i) => {
+            const art = !beantwortet ? '' : i === frage.richtig ? 'richtig' : i === ergebnis.wahl ? 'falsch' : '';
+            return (
+              <button
+                key={i}
+                className={`antwort ${art}`}
+                disabled={beantwortet}
+                onClick={() => merken({ gut: i === frage.richtig, wahl: i })}
+              >
+                {art === 'richtig' && '✓ '}
+                {art === 'falsch' && '✗ '}
+                {frage.antworten[i]}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <form className="rechnen" onSubmit={pruefen} noValidate>
+          <label htmlFor="rechen-eingabe">Ergebnis{frage.einheit && ` in ${frage.einheit}`}</label>
+          <div className="knopfreihe" style={{ marginTop: 6, alignItems: 'center' }}>
+            <input
+              id="rechen-eingabe"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={eingabe}
               disabled={beantwortet}
-              onClick={() => setAntworten(antworten.map((a, j) => (j === nr ? i : a)))}
-            >
-              {art === 'richtig' && '✓ '}
-              {art === 'falsch' && '✗ '}
-              {frage.antworten[i]}
+              aria-invalid={!!eingabeFehler}
+              aria-describedby={eingabeFehler ? 'rechen-fehler' : undefined}
+              onChange={(e) => setEingabe(e.target.value)}
+            />
+            {frage.einheit && <span>{frage.einheit}</span>}
+            <button className="knopf zweit" type="submit" disabled={beantwortet}>
+              Prüfen
             </button>
-          );
-        })}
-      </div>
+          </div>
+          {eingabeFehler && (
+            <p id="rechen-fehler" className="rueckmeldung falsch" role="alert">
+              {eingabeFehler}
+            </p>
+          )}
+        </form>
+      )}
       <div aria-live="polite">
         {beantwortet && (
           <>
-            <p className={`rueckmeldung ${gewaehlt === frage.richtig ? 'richtig' : 'falsch'}`}>
-              {gewaehlt === frage.richtig ? 'Richtig!' : 'Leider falsch.'}
+            <p className={`rueckmeldung ${ergebnis.gut ? 'richtig' : 'falsch'}`}>
+              {ergebnis.gut ? 'Richtig!' : 'Leider falsch.'}
+              {'zahl' in frage && !ergebnis.gut && ` Richtig ist ${zahlText(frage.zahl)}${frage.einheit ? ` ${frage.einheit}` : ''}.`}
             </p>
             {frage.erklaerung && <p>{frage.erklaerung}</p>}
           </>
         )}
       </div>
       {beantwortet && (
-        <button className="knopf" onClick={() => (letzte ? setFertig(true) : setNr(nr + 1))}>
+        <button className="knopf" onClick={weiter}>
           {letzte ? 'Zur Auswertung' : 'Weiter'}
         </button>
       )}

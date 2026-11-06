@@ -303,7 +303,7 @@ h3 { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.5rem; }
 }
 
 label { font-weight: 600; }
-select, input[type='number'] {
+select, input[type='number'], .rechnen input {
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--rand);
   border-radius: 2px;
@@ -463,3 +463,7 @@ html[data-kugel] .messraster, html[data-tal] .messraster { display: none; }
 .notiz { display: block; margin-top: 0.25rem; color: var(--leise); font-size: 0.9rem; white-space: pre-wrap; }
 .knopf.klein { padding: 0.4rem 0.6rem; font-size: 11px; }
 .hinweis { padding: 0.6rem 0.8rem; border-left: 3px solid #ffb35a; background: rgba(255, 179, 90, 0.12); }
+
+/* Zwischenprüfung: Rechenaufgaben */
+.rechnen { margin-top: 1rem; }
+.rechnen input { width: 12rem; max-width: 100%; }

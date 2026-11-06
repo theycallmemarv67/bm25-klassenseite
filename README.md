@@ -60,6 +60,34 @@ fragen: [
 
 Keine privaten Daten (Namen, Noten) eintragen – die Seite ist öffentlich.
 
+## Zwischenprüfung (Reiter „Prüfung“)
+
+Oben im Reiter „Prüfung“ schaltest du zwischen **Abschlussprüfung** (bisheriger Inhalt) und **Zwischenprüfung** um. Die Zwischenprüfung ist eine Übung für Teil 1 der Abschlussprüfung (Kaufleute für Büromanagement) mit den Stufen Leicht, Mittel, Schwer und Simulation, Zeitlimit, Rechenaufgaben und einer Notenschätzung nach IHK-Schlüssel.
+
+Die Fragen stehen in `data/zwischenpruefung.ts`. Es sind **eigene Übungsfragen**, keine Original-Prüfungsaufgaben (die sind urheberrechtlich geschützt und gehören nicht auf diese öffentliche Seite).
+
+**Eigene Frage ergänzen:** In `fragen` einen Eintrag kopieren und anpassen.
+
+```ts
+// Mehrfachauswahl: 4 Antworten, die richtige steht VORN (richtig: 0)
+{
+  stufe: 'leicht', thema: 'Beschaffung',
+  frage: 'Was ist eine Anfrage?',
+  antworten: ['Richtige Antwort', 'Falsch 1', 'Falsch 2', 'Falsch 3'],
+  richtig: 0,
+  erklaerung: 'Kurze Begründung.',
+},
+// Rechenaufgabe
+{
+  stufe: 'mittel', thema: 'Rechnen und Kalkulation',
+  frage: 'Wie viel sind 19 % von 200 €?',
+  zahl: 38, einheit: '€', toleranz: 0.01,
+  erklaerung: 'Rechenweg: 200 € × 19 % = 38 €.',
+},
+```
+
+`stufe` ist `'leicht'`, `'mittel'` oder `'schwer'`, `thema` einer der Namen aus `THEMEN` oben in der Datei. Danach `node lib/hilfen.selbsttest.mts` ausführen: Der Test meldet Fehler im Aufbau (z. B. falsches Thema, keine 4 Antworten).
+
 ## Der Partikel-Kopf
 
 Die Startseite lädt `public/kopf/tiefe.png` und `public/kopf/normalen.png` (volle Fotoauflösung) und erzeugt daraus 320.000 Partikel (Fenster schmaler als 820 px: 170.000). Fehlen die Dateien, wird automatisch eine Büste per Code erzeugt (`lib/bueste.ts`).

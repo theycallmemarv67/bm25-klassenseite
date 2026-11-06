@@ -52,3 +52,26 @@ export function formatDatum(d: Date, mitZeit = false): string {
     ...(mitZeit ? { hour: '2-digit', minute: '2-digit' } : {}),
   });
 }
+
+// Zahl aus einer Eingabe lesen: "1.259,50", "416,50", "416.5", "15 %", "784 €". Ungültig (z. B. Buchstaben) = null.
+export function zahlLesen(text: string): number | null {
+  let s = text.replace(/[\s€%]/g, '').replace(/−/g, '-');
+  if (!/^-?[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
+  const komma = s.lastIndexOf(',');
+  const punkt = s.lastIndexOf('.');
+  if (komma >= 0 && punkt >= 0) {
+    // das letzte Trennzeichen ist das Dezimalzeichen, das andere trennt Tausender
+    s = komma > punkt ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (komma >= 0) {
+    s = (s.match(/,/g)!.length > 1 ? s.replace(/,/g, '') : s.replace(',', '.'));
+  } else if (punkt >= 0 && (s.match(/\./g)!.length > 1 || /^-?\d{1,3}\.\d{3}$/.test(s))) {
+    s = s.replace(/\./g, ''); // "1.259" oder "1.200.000" = deutsche Tausenderpunkte
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Notenschätzung nach IHK-Punkteschlüssel (Prozent der Punkte)
+export function ihkNote(prozent: number): number {
+  return prozent >= 92 ? 1 : prozent >= 81 ? 2 : prozent >= 67 ? 3 : prozent >= 50 ? 4 : prozent >= 30 ? 5 : 6;
+}
